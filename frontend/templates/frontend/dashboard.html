@@ -1,0 +1,389 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}
+Dashboard - PaySecure
+{% endblock %}
+
+{% block page_title %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<div class="welcome-section">
+
+    <div>
+
+        <p class="eyebrow">
+            OVERVIEW
+        </p>
+
+        <h1>
+            Welcome back, <span id="welcomeUsername">User</span>
+        </h1>
+
+        <p>
+            Manage your cards and payments from one secure place.
+        </p>
+
+    </div>
+
+    <a
+        href="/payment/"
+        class="primary-button"
+    >
+        + Make Payment
+    </a>
+
+</div>
+
+
+<div class="stats-grid">
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            ▣
+        </div>
+
+        <div>
+
+            <span>
+                Saved Cards
+            </span>
+
+            <h2 id="totalCards">
+                0
+            </h2>
+
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            $
+        </div>
+
+        <div>
+
+            <span>
+                Transactions
+            </span>
+
+            <h2 id="totalTransactions">
+                0
+            </h2>
+
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon success-icon">
+            ✓
+        </div>
+
+        <div>
+
+            <span>
+                Successful
+            </span>
+
+            <h2 id="successfulTransactions">
+                0
+            </h2>
+
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon danger-icon">
+            !
+        </div>
+
+        <div>
+
+            <span>
+                Failed
+            </span>
+
+            <h2 id="failedTransactions">
+                0
+            </h2>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="dashboard-grid">
+
+    <div class="panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h3>Recent Transactions</h3>
+                <p>Your latest payment activity</p>
+            </div>
+
+            <a href="/transactions/">
+                View All
+            </a>
+
+        </div>
+
+        <div id="recentTransactions">
+
+            <div class="empty-state">
+                No transactions yet.
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="panel quick-actions">
+
+        <div class="panel-header">
+
+            <div>
+                <h3>Quick Actions</h3>
+                <p>Manage your account</p>
+            </div>
+
+        </div>
+
+        <a
+            href="/cards/"
+            class="action-card"
+        >
+            <span class="action-icon">
+                ▣
+            </span>
+
+            <div>
+                <strong>Manage Cards</strong>
+                <small>Add or view your saved cards.</small>
+            </div>
+
+            <span>→</span>
+        </a>
+
+        <a
+            href="/payment/"
+            class="action-card"
+        >
+            <span class="action-icon">
+                $
+            </span>
+
+            <div>
+                <strong>Make Payment</strong>
+                <small>Make a secure card payment.</small>
+            </div>
+
+            <span>→</span>
+        </a>
+
+        <a
+            href="/transactions/"
+            class="action-card"
+        >
+            <span class="action-icon">
+                ▤
+            </span>
+
+            <div>
+                <strong>Transaction History</strong>
+                <small>View all your payments.</small>
+            </div>
+
+            <span>→</span>
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+
+async function loadDashboard() {
+
+    const token = getAccessToken();
+
+    if (!token) {
+
+        redirectToLogin();
+
+        return;
+    }
+
+    try {
+
+        const profileResponse = await apiFetch(
+            "/api/accounts/profile/"
+        );
+
+        if (profileResponse.ok) {
+
+            const user = await profileResponse.json();
+
+            document.getElementById(
+                "welcomeUsername"
+            ).textContent = user.username || "User";
+
+            document.getElementById(
+                "topUsername"
+            ).textContent = user.username || "User";
+        }
+
+
+        const cardsResponse =
+            await apiFetch("/api/cards/");
+
+        if (cardsResponse.ok) {
+
+            const cards =
+                await cardsResponse.json();
+
+            document.getElementById(
+                "totalCards"
+            ).textContent = cards.length;
+        }
+
+
+        const transactionsResponse =
+            await apiFetch("/api/transactions/");
+
+        if (transactionsResponse.ok) {
+
+            const transactions =
+                await transactionsResponse.json();
+
+            document.getElementById(
+                "totalTransactions"
+            ).textContent = transactions.length;
+
+            const successful =
+                transactions.filter(
+                    transaction =>
+                        transaction.status === "SUCCESS"
+                ).length;
+
+            const failed =
+                transactions.filter(
+                    transaction =>
+                        transaction.status === "FAILED"
+                ).length;
+
+            document.getElementById(
+                "successfulTransactions"
+            ).textContent = successful;
+
+            document.getElementById(
+                "failedTransactions"
+            ).textContent = failed;
+
+            showRecentTransactions(
+                transactions.slice(0, 5)
+            );
+        }
+
+    } catch (error) {
+
+        console.error(error);
+    }
+}
+
+
+function showRecentTransactions(transactions) {
+
+    const container =
+        document.getElementById(
+            "recentTransactions"
+        );
+
+    if (!transactions.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                No transactions yet.
+            </div>
+        `;
+
+        return;
+    }
+
+    container.innerHTML =
+        transactions.map(transaction => `
+
+            <div class="transaction-row">
+
+                <div class="transaction-info">
+
+                    <div class="transaction-icon">
+                        $
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Payment
+                        </strong>
+
+                        <small>
+                            ${formatDate(
+                                transaction.created_at
+                            )}
+                        </small>
+
+                    </div>
+
+                </div>
+
+                <div class="transaction-right">
+
+                    <strong>
+                        ${formatAmount(
+                            transaction.amount
+                        )}
+                    </strong>
+
+                    <span class="
+                        status-badge
+                        ${getStatusClass(
+                            transaction.status
+                        )}
+                    ">
+                        ${transaction.status}
+                    </span>
+
+                </div>
+
+            </div>
+
+        `).join("");
+}
+
+
+loadDashboard();
+
+</script>
+
+{% endblock %}

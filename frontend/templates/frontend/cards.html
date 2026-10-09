@@ -1,0 +1,738 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}
+My Cards - PaySecure
+{% endblock %}
+
+{% block page_title %}
+My Cards
+{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">
+
+    <div>
+
+        <p class="eyebrow">
+            CARD MANAGEMENT
+        </p>
+
+        <h1>
+            My Cards
+        </h1>
+
+        <p>
+            Manage your saved credit and debit cards.
+        </p>
+
+    </div>
+
+    <button
+        class="primary-button"
+        onclick="openModal()"
+    >
+        + Add Card
+    </button>
+
+</div>
+
+
+<div
+    id="cardsGrid"
+    class="cards-grid"
+>
+</div>
+
+
+<div
+    id="cardsEmpty"
+    class="empty-state large-empty"
+    style="display: none;"
+>
+
+    <div class="empty-icon">
+        ▣
+    </div>
+
+    <h3>
+        No cards saved
+    </h3>
+
+    <p>
+        Add your first credit or debit card to make payments.
+    </p>
+
+    <button
+        class="primary-button"
+        onclick="openModal()"
+    >
+        Add Your Card
+    </button>
+
+</div>
+
+
+<!-- Add Card Modal -->
+
+<div
+    id="cardModal"
+    class="modal-overlay"
+>
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <div>
+
+                <h2>
+                    Add New Card
+                </h2>
+
+                <p>
+                    Save your card securely.
+                </p>
+
+            </div>
+
+            <button
+                type="button"
+                class="modal-close"
+                onclick="closeModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="cardForm">
+
+            <!-- Card Number -->
+
+            <div class="form-group">
+
+                <label for="cardNumber">
+                    Card Number
+                </label>
+
+                <input
+                    type="text"
+                    id="cardNumber"
+                    placeholder="1234 5678 9012 3456"
+                    maxlength="19"
+                    required
+                >
+
+            </div>
+
+
+            <!-- Card Holder -->
+
+            <div class="form-group">
+
+                <label for="cardHolder">
+                    Card Holder Name
+                </label>
+
+                <input
+                    type="text"
+                    id="cardHolder"
+                    placeholder="Name on card"
+                    maxlength="100"
+                    required
+                >
+
+            </div>
+
+
+            <!-- Expiry -->
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label for="expiryMonth">
+                        Expiry Month
+                    </label>
+
+                    <select
+                        id="expiryMonth"
+                        required
+                    >
+
+                        <option value="">
+                            Month
+                        </option>
+
+                        <option value="1">
+                            01
+                        </option>
+
+                        <option value="2">
+                            02
+                        </option>
+
+                        <option value="3">
+                            03
+                        </option>
+
+                        <option value="4">
+                            04
+                        </option>
+
+                        <option value="5">
+                            05
+                        </option>
+
+                        <option value="6">
+                            06
+                        </option>
+
+                        <option value="7">
+                            07
+                        </option>
+
+                        <option value="8">
+                            08
+                        </option>
+
+                        <option value="9">
+                            09
+                        </option>
+
+                        <option value="10">
+                            10
+                        </option>
+
+                        <option value="11">
+                            11
+                        </option>
+
+                        <option value="12">
+                            12
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="expiryYear">
+                        Expiry Year
+                    </label>
+
+                    <select
+                        id="expiryYear"
+                        required
+                    >
+
+                        <option value="">
+                            Year
+                        </option>
+
+                        <option value="2026">
+                            2026
+                        </option>
+
+                        <option value="2027">
+                            2027
+                        </option>
+
+                        <option value="2028">
+                            2028
+                        </option>
+
+                        <option value="2029">
+                            2029
+                        </option>
+
+                        <option value="2030">
+                            2030
+                        </option>
+
+                        <option value="2031">
+                            2031
+                        </option>
+
+                        <option value="2032">
+                            2032
+                        </option>
+
+                        <option value="2033">
+                            2033
+                        </option>
+
+                        <option value="2034">
+                            2034
+                        </option>
+
+                        <option value="2035">
+                            2035
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <!-- Card Type -->
+
+            <div class="form-group">
+
+                <label for="cardType">
+                    Card Type
+                </label>
+
+                <select
+                    id="cardType"
+                    required
+                >
+
+                    <option value="CREDIT">
+                        Credit Card
+                    </option>
+
+                    <option value="DEBIT">
+                        Debit Card
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="primary-button full-width"
+            >
+                Save Card
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+let savedCards = [];
+
+
+/* ================================
+   LOAD CARDS
+================================ */
+
+async function loadCards() {
+
+    if (!getAccessToken()) {
+
+        redirectToLogin();
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await apiFetch("/api/cards/");
+
+
+        if (!response.ok) {
+
+            const data =
+                await response.json();
+
+            showToast(
+                getApiError(data),
+                "error"
+            );
+
+            return;
+        }
+
+
+        savedCards =
+            await response.json();
+
+
+        renderCards();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "Unable to connect to server.",
+            "error"
+        );
+    }
+}
+
+
+/* ================================
+   RENDER CARDS
+================================ */
+
+function renderCards() {
+
+    const grid =
+        document.getElementById("cardsGrid");
+
+    const empty =
+        document.getElementById("cardsEmpty");
+
+
+    if (!savedCards.length) {
+
+        grid.innerHTML = "";
+
+        empty.style.display = "block";
+
+        return;
+    }
+
+
+    empty.style.display = "none";
+
+
+    grid.innerHTML =
+        savedCards.map(card => {
+
+
+            const lastFour =
+                card.last_four_digits ||
+                "0000";
+
+
+            const month =
+                String(
+                    card.expiry_month || ""
+                ).padStart(2, "0");
+
+
+            const year =
+                card.expiry_year
+                    ? String(
+                        card.expiry_year
+                    ).slice(-2)
+                    : "";
+
+
+            const expiry =
+                month && year
+                    ? `${month}/${year}`
+                    : "--/--";
+
+
+            return `
+
+                <div class="credit-card">
+
+                    <div class="card-top">
+
+                        <span>
+                            ${card.card_type || "CARD"}
+                        </span>
+
+                        <span class="card-chip">
+                            ▦
+                        </span>
+
+                    </div>
+
+
+                    <div class="card-number">
+
+                        •••• •••• •••• ${lastFour}
+
+                    </div>
+
+
+                    <div class="card-bottom">
+
+                        <div>
+
+                            <small>
+                                CARD HOLDER
+                            </small>
+
+                            <strong>
+                                ${
+                                    card.card_holder_name ||
+                                    "CARD HOLDER"
+                                }
+                            </strong>
+
+                        </div>
+
+
+                        <div>
+
+                            <small>
+                                EXPIRY
+                            </small>
+
+                            <strong>
+                                ${expiry}
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        }).join("");
+}
+
+
+/* ================================
+   OPEN MODAL
+================================ */
+
+function openModal() {
+
+    document
+        .getElementById("cardModal")
+        .classList.add("show");
+}
+
+
+/* ================================
+   CLOSE MODAL
+================================ */
+
+function closeModal() {
+
+    document
+        .getElementById("cardModal")
+        .classList.remove("show");
+}
+
+
+/* ================================
+   ADD CARD
+================================ */
+
+document
+    .getElementById("cardForm")
+    .addEventListener(
+        "submit",
+        async function(event) {
+
+            event.preventDefault();
+
+
+            const cardNumber =
+                document
+                    .getElementById("cardNumber")
+                    .value
+                    .replace(/\s/g, "");
+
+
+            const holder =
+                document
+                    .getElementById("cardHolder")
+                    .value
+                    .trim();
+
+
+            const expiryMonth =
+                document
+                    .getElementById("expiryMonth")
+                    .value;
+
+
+            const expiryYear =
+                document
+                    .getElementById("expiryYear")
+                    .value;
+
+
+            const cardType =
+                document
+                    .getElementById("cardType")
+                    .value;
+
+
+            /* ================================
+               FRONTEND VALIDATION
+            ================================= */
+
+            if (
+                cardNumber.length < 13 ||
+                cardNumber.length > 19
+            ) {
+
+                showToast(
+                    "Card number must contain 13 to 19 digits.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (!/^\d+$/.test(cardNumber)) {
+
+                showToast(
+                    "Card number must contain only digits.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (!holder) {
+
+                showToast(
+                    "Card holder name is required.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (!expiryMonth) {
+
+                showToast(
+                    "Expiry month is required.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (!expiryYear) {
+
+                showToast(
+                    "Expiry year is required.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            /* ================================
+               REQUEST PAYLOAD
+            ================================= */
+
+            const payload = {
+
+                card_type: cardType,
+
+                card_holder_name: holder,
+
+                card_number: cardNumber,
+
+                expiry_month: Number(
+                    expiryMonth
+                ),
+
+                expiry_year: Number(
+                    expiryYear
+                )
+
+            };
+
+
+            console.log(
+                "Card payload:",
+                payload
+            );
+
+
+            try {
+
+                const response =
+                    await apiFetch(
+                        "/api/cards/",
+                        {
+                            method: "POST",
+
+                            body: JSON.stringify(
+                                payload
+                            )
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                console.log(
+                    "Card API response:",
+                    data
+                );
+
+
+                if (!response.ok) {
+
+                    showToast(
+                        getApiError(data),
+                        "error"
+                    );
+
+                    return;
+                }
+
+
+                showToast(
+                    "Card added successfully!",
+                    "success"
+                );
+
+
+                document
+                    .getElementById("cardForm")
+                    .reset();
+
+
+                closeModal();
+
+
+                await loadCards();
+
+            } catch (error) {
+
+                console.error(error);
+
+                showToast(
+                    "Unable to connect to server.",
+                    "error"
+                );
+            }
+
+        }
+    );
+
+
+/* ================================
+   INITIAL LOAD
+================================ */
+
+loadCards();
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,442 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}
+Make Payment - PaySecure
+{% endblock %}
+
+{% block page_title %}
+Make Payment
+{% endblock %}
+
+{% block content %}
+
+<div class="payment-wrapper">
+
+    <div class="payment-card">
+
+        <div class="page-heading compact">
+
+            <div>
+
+                <p class="eyebrow">
+                    PAYMENT
+                </p>
+
+                <h1>
+                    Make a Payment
+                </h1>
+
+                <p>
+                    Enter the payment details below.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <form id="paymentForm">
+
+            <div class="form-group">
+
+                <label>
+                    Select Card
+                </label>
+
+                <select
+                    id="paymentCard"
+                    required
+                >
+
+                    <option value="">
+                        Select a saved card
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    Payment Amount
+                </label>
+
+                <div class="amount-input">
+
+                    <span>
+                        ₹
+                    </span>
+
+                    <input
+                        type="number"
+                        id="paymentAmount"
+                        placeholder="0.00"
+                        min="0.01"
+                        step="0.01"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="secure-note">
+
+                <span>
+                    🔒
+                </span>
+
+                <div>
+
+                    <strong>
+                        Secure Payment
+                    </strong>
+
+                    <p>
+                        Your payment is processed securely.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="primary-button full-width"
+                id="paymentButton"
+            >
+                Pay Now
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <div
+        id="paymentResult"
+        class="payment-result"
+        style="display: none;"
+    >
+
+        <div
+            id="paymentResultIcon"
+            class="result-icon"
+        >
+        </div>
+
+        <h2 id="paymentResultTitle">
+            Payment Result
+        </h2>
+
+        <p id="paymentResultMessage">
+        </p>
+
+        <div class="result-details">
+
+            <div>
+                <span>Transaction ID</span>
+                <strong id="resultTransactionId">-</strong>
+            </div>
+
+            <div>
+                <span>Amount</span>
+                <strong id="resultAmount">-</strong>
+            </div>
+
+            <div>
+                <span>Status</span>
+                <strong id="resultStatus">-</strong>
+            </div>
+
+        </div>
+
+        <a
+            href="/transactions/"
+            class="secondary-button"
+        >
+            View Transactions
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+
+async function loadPaymentCards() {
+
+    if (!getAccessToken()) {
+
+        redirectToLogin();
+
+        return;
+    }
+
+    try {
+
+        const response =
+            await apiFetch("/api/cards/");
+
+        if (!response.ok) {
+
+            showToast(
+                "Unable to load cards.",
+                "error"
+            );
+
+            return;
+        }
+
+        const cards =
+            await response.json();
+
+        const select =
+            document.getElementById(
+                "paymentCard"
+            );
+
+        cards.forEach(card => {
+
+            const number =
+                card.card_number ||
+                card.number ||
+                "";
+
+            const lastFour =
+                number
+                    .replace(/\s/g, "")
+                    .slice(-4);
+
+            const option =
+                document.createElement("option");
+
+            option.value = card.id;
+
+            option.textContent =
+                `${card.card_type || "Card"} •••• ${lastFour}`;
+
+            select.appendChild(option);
+
+        });
+
+        if (!cards.length) {
+
+            showToast(
+                "Please add a card before making a payment.",
+                "error"
+            );
+        }
+
+    } catch (error) {
+
+        showToast(
+            "Unable to connect to server.",
+            "error"
+        );
+    }
+}
+
+
+document
+    .getElementById("paymentForm")
+    .addEventListener(
+        "submit",
+        async function(event) {
+
+            event.preventDefault();
+
+            const cardId =
+                document
+                    .getElementById("paymentCard")
+                    .value;
+
+            const amount =
+                document
+                    .getElementById("paymentAmount")
+                    .value;
+
+
+            if (!cardId) {
+
+                showToast(
+                    "Please select a card.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            if (!amount || Number(amount) <= 0) {
+
+                showToast(
+                    "Enter a valid payment amount.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            const button =
+                document.getElementById(
+                    "paymentButton"
+                );
+
+            button.disabled = true;
+
+            button.textContent =
+                "Processing...";
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "http://127.0.0.1:8001/api/payments/",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+
+                                card_id:
+                                    Number(cardId),
+
+                                amount:
+                                    Number(amount)
+                                    .toFixed(2)
+
+                            })
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    showToast(
+                        getApiError(data),
+                        "error"
+                    );
+
+                    return;
+                }
+
+
+                showPaymentResult(data);
+
+
+            } catch (error) {
+
+                showToast(
+                    "Unable to connect to Payment API.",
+                    "error"
+                );
+
+            } finally {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "Pay Now";
+            }
+
+        }
+    );
+
+
+function showPaymentResult(data) {
+
+    const result =
+        document.getElementById(
+            "paymentResult"
+        );
+
+    const icon =
+        document.getElementById(
+            "paymentResultIcon"
+        );
+
+    const title =
+        document.getElementById(
+            "paymentResultTitle"
+        );
+
+
+    result.style.display = "block";
+
+
+    document.getElementById(
+        "resultTransactionId"
+    ).textContent =
+        data.transaction_id || "-";
+
+
+    document.getElementById(
+        "resultAmount"
+    ).textContent =
+        formatAmount(data.amount);
+
+
+    document.getElementById(
+        "resultStatus"
+    ).textContent =
+        data.status || "-";
+
+
+    document.getElementById(
+        "paymentResultMessage"
+    ).textContent =
+        data.message || "";
+
+
+    if (data.status === "SUCCESS") {
+
+        icon.textContent = "✓";
+
+        icon.className =
+            "result-icon result-success";
+
+        title.textContent =
+            "Payment Successful";
+
+    } else {
+
+        icon.textContent = "×";
+
+        icon.className =
+            "result-icon result-failed";
+
+        title.textContent =
+            "Payment Failed";
+    }
+
+
+    result.scrollIntoView({
+        behavior: "smooth"
+    });
+}
+
+
+loadPaymentCards();
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,376 @@
+
+{% extends "frontend/base.html" %}
+
+{% block title %}Admin Summary - PaySecure{% endblock %}
+
+{% block page_title %}Admin Payment Summary{% endblock %}
+
+{% block content %}
+
+<style>
+    .admin-summary {
+        color: var(--text-primary, #172033);
+    }
+
+    .summary-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+
+    .summary-heading h2 {
+        margin: 0 0 8px;
+    }
+
+    .summary-heading p {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .summary-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .summary-button {
+        border: 0;
+        border-radius: 9px;
+        padding: 12px 16px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .summary-button.primary {
+        background: #2563eb;
+        color: white;
+    }
+
+    .summary-button.secondary {
+        background: #e2e8f0;
+        color: #172033;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns:
+            repeat(auto-fit, minmax(190px, 1fr));
+        gap: 18px;
+    }
+
+    .summary-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 4px 15px #0f172a08;
+    }
+
+    .summary-label {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .summary-value {
+        font-size: 30px;
+        font-weight: 700;
+        margin-top: 14px;
+        overflow-wrap: anywhere;
+    }
+
+    .summary-status {
+        margin-top: 24px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .summary-status.error {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+
+    .summary-status[hidden] {
+        display: none;
+    }
+</style>
+
+<div class="admin-summary">
+
+    <div class="summary-heading">
+        <div>
+            <h2>Daily Payment Summary</h2>
+            <p>
+                Overview for
+                <strong id="summaryDate">Loading...</strong>
+            </p>
+        </div>
+
+        <div class="summary-actions">
+            <button
+                type="button"
+                class="summary-button secondary"
+                onclick="loadAdminSummary()"
+            >
+                Refresh
+            </button>
+
+            <button
+                type="button"
+                id="exportCsvButton"
+                class="summary-button primary"
+                onclick="exportTransactionsCsv()"
+            >
+                Export Transactions CSV
+            </button>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+
+        <div class="summary-card">
+            <div class="summary-label">
+                Total Transactions
+            </div>
+            <div class="summary-value" id="totalTransactions">
+                —
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">
+                Successful Payments
+            </div>
+            <div class="summary-value" id="successfulPayments">
+                —
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">
+                Failed Payments
+            </div>
+            <div class="summary-value" id="failedPayments">
+                —
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">
+                Pending Payments
+            </div>
+            <div class="summary-value" id="pendingPayments">
+                —
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">
+                Total Payment Amount
+            </div>
+            <div class="summary-value" id="totalPaymentAmount">
+                —
+            </div>
+        </div>
+
+    </div>
+
+    <div
+        id="summaryMessage"
+        class="summary-status"
+        role="status"
+        aria-live="polite"
+        hidden
+    ></div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const SUMMARY_API =
+        "/api/transactions/admin/summary/";
+
+    const EXPORT_API =
+        "/api/transactions/admin/export/";
+
+    function getAdminAccessToken() {
+        if (typeof getAccessToken === "function") {
+            return getAccessToken();
+        }
+
+        // Fallback: use your existing localStorage token key.
+        return (
+            localStorage.getItem("access") ||
+            localStorage.getItem("access_token") ||
+            localStorage.getItem("accessToken")
+        );
+    }
+
+    function showSummaryMessage(message, isError = false) {
+        const element =
+            document.getElementById("summaryMessage");
+
+        element.textContent = message;
+        element.classList.toggle("error", isError);
+        element.hidden = false;
+    }
+
+    function clearSummaryMessage() {
+        document.getElementById("summaryMessage").hidden = true;
+    }
+
+    function handleAdminResponse(response) {
+        if (response.status === 401) {
+            throw new Error(
+                "Your session has expired or the access token is missing. Please log in again."
+            );
+        }
+
+        if (response.status === 403) {
+            throw new Error(
+                "Administrator access is required for this feature."
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                "Request failed with status " + response.status
+            );
+        }
+
+        return response;
+    }
+
+    async function loadAdminSummary() {
+        clearSummaryMessage();
+
+        const token = getAdminAccessToken();
+
+        if (!token) {
+            showSummaryMessage(
+                "Please log in before opening the admin summary.",
+                true
+            );
+            return;
+        }
+
+        try {
+            const response = await fetch(SUMMARY_API, {
+                method: "GET",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Accept": "application/json"
+                }
+            });
+
+            handleAdminResponse(response);
+
+            const data = await response.json();
+
+            document.getElementById("summaryDate").textContent =
+                data.date;
+
+            document.getElementById("totalTransactions").textContent =
+                data.total_transactions;
+
+            document.getElementById("successfulPayments").textContent =
+                data.successful_payments;
+
+            document.getElementById("failedPayments").textContent =
+                data.failed_payments;
+
+            document.getElementById("pendingPayments").textContent =
+                data.pending_payments;
+
+            const amount = Number(data.total_payment_amount);
+
+            document.getElementById("totalPaymentAmount").textContent =
+                Number.isFinite(amount)
+                    ? amount.toLocaleString("en-IN", {
+                        style: "currency",
+                        currency: "INR"
+                    })
+                    : "₹" + data.total_payment_amount;
+
+        } catch (error) {
+            showSummaryMessage(error.message, true);
+        }
+    }
+
+    async function exportTransactionsCsv() {
+        clearSummaryMessage();
+
+        const token = getAdminAccessToken();
+
+        if (!token) {
+            showSummaryMessage(
+                "Please log in before exporting transactions.",
+                true
+            );
+            return;
+        }
+
+        const button =
+            document.getElementById("exportCsvButton");
+
+        button.disabled = true;
+        button.textContent = "Exporting...";
+
+        try {
+            const response = await fetch(EXPORT_API, {
+                method: "GET",
+                headers: {
+                    "Authorization": "Bearer " + token,
+                    "Accept": "text/csv"
+                }
+            });
+
+            handleAdminResponse(response);
+
+            const blob = await response.blob();
+
+            const disposition =
+                response.headers.get("Content-Disposition") || "";
+
+            const match =
+                disposition.match(/filename="?([^";]+)"?/i);
+
+            const filename =
+                match ? match[1] : "transactions.csv";
+
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+
+            link.href = downloadUrl;
+            link.download = filename;
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            URL.revokeObjectURL(downloadUrl);
+
+            showSummaryMessage(
+                "Transaction CSV exported successfully."
+            );
+
+        } catch (error) {
+            showSummaryMessage(error.message, true);
+
+        } finally {
+            button.disabled = false;
+            button.textContent = "Export Transactions CSV";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        loadAdminSummary();
+    });
+</script>
+{% endblock %}

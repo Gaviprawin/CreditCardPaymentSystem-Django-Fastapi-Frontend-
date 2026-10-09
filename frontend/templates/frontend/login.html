@@ -1,0 +1,157 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}
+Login - PaySecure
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-page">
+
+    <div class="auth-card">
+
+        <div class="auth-logo">
+            $
+        </div>
+
+        <h1>Welcome Back</h1>
+
+        <p class="auth-subtitle">
+            Sign in to manage your payments securely.
+        </p>
+
+        <form id="loginForm">
+
+            <div class="form-group">
+
+                <label>
+                    Username
+                </label>
+
+                <input
+                    type="text"
+                    id="loginUsername"
+                    placeholder="Enter your username"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+
+                <label>
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    id="loginPassword"
+                    placeholder="Enter your password"
+                    required
+                >
+
+            </div>
+
+            <button
+                type="submit"
+                class="primary-button full-width"
+            >
+                Login
+            </button>
+
+        </form>
+
+        <p class="auth-footer">
+
+            Don't have an account?
+
+            <a href="/register/">
+                Create account
+            </a>
+
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+
+document
+    .getElementById("loginForm")
+    .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const username =
+            document.getElementById("loginUsername").value.trim();
+
+        const password =
+            document.getElementById("loginPassword").value;
+
+        try {
+
+            const response = await fetch(
+                "/api/accounts/login/",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+
+                showToast(
+                    getApiError(data),
+                    "error"
+                );
+
+                return;
+            }
+
+            localStorage.setItem(
+                "access_token",
+                data.access
+            );
+
+            localStorage.setItem(
+                "refresh_token",
+                data.refresh
+            );
+
+            showToast(
+                "Login successful!",
+                "success"
+            );
+
+            setTimeout(() => {
+                window.location.href = "/dashboard/";
+            }, 700);
+
+        } catch (error) {
+
+            showToast(
+                "Unable to connect to server.",
+                "error"
+            );
+        }
+
+    });
+
+</script>
+
+{% endblock %}
